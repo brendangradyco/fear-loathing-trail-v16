@@ -1,4 +1,4 @@
-FEAR & LOATHING TRAIL — V16 CHANGELOG
+FEAR & LOATHING TRAIL — V16 CHANGELOG  (v16.3.0)
 Generated: 2026-03-09
 ============================================================
 
@@ -68,7 +68,30 @@ Generated: 2026-03-09
 |    |                   | Page reload during traveling resets to 'travel'    |            |
 | 24 | Solo Reset        | Solo game (1 player) is NOT saved on page reload    | DONE       |
 |    |                   | Cash resets to default $350 on each fresh start     |            |
-| 25 | Multiplayer       | PeerNet BATCNT default room -- CHUNK 2              | PENDING    |
+| 25 | Drug System       | Buy Drugs: market screen with 5 drug types, price   | DONE       |
+|    |                   | scales by stop index (cheap near Colombia, pricey   |            |
+|    |                   | early on)                                           |            |
+| 26 | Drug System       | Make Drugs: 4 production methods                    | DONE       |
+|    |                   | -- Cook Meth: timing slider mini-game, $40 chemicals|            |
+|    |                   | -- Process Coke: 15-tap in 5s, $50 equipment        |            |
+|    |                   | -- Grow Weed: passive, harvest in 2 stops           |            |
+|    |                   | -- Moonshine Still: passive, collect next stop      |            |
+| 27 | Drug System       | Sell Drugs: burner phone UI with 8 FIEND contacts   | DONE       |
+|    |                   | Each fiend wants a specific drug at their price     |            |
+|    |                   | High-risk contacts flagged with bust % warning      |            |
+| 28 | Drug System       | Deal Mini-Game "The Drop": heat meter 0-100%        | DONE       |
+|    |                   | Survive 8s mashing STAY COOL to drain heat          |            |
+|    |                   | Random cop/siren events spike heat                  |            |
+|    |                   | Win = cash paid; Lose = stash seized + fine + sanity|            |
+| 29 | Drug System       | Drug inventory shown in stat bar chip (💊 count)    | DONE       |
+|    |                   | Cook flags methCookUsed/cokeCookUsed reset on arrive|            |
+| 30 | DOOM Bug Fix      | Enemy alpha was 1.4/dist -- at dist=5, alpha=0.28   | DONE       |
+|    |                   | Fix: al=1.0 (fully opaque, DOOM-style)              |            |
+| 31 | DOOM Bug Fix      | Enemy sy=H/2-sh*0.9 pushed 90% into dark ceiling   | DONE       |
+|    |                   | Fix: sy=H/2-sh*0.55 (centers at eye-level horizon)  |            |
+| 32 | Player List       | Convoy player list shown in action-area with name   | DONE       |
+|    |                   | and alive/dead status (🟢/💀)                        |            |
+| 33 | Multiplayer       | PeerNet BATCNT default room -- CHUNK 2              | PENDING    |
 | 17 | Multiplayer       | Room browser for full rooms -- CHUNK 2              | PENDING    |
 | 18 | Multiplayer       | In-game copy link button -- CHUNK 2                 | PENDING    |
 | 19 | Multiplayer       | AFK 45s auto-advance -- CHUNK 2                     | PENDING    |

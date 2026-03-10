@@ -69,6 +69,9 @@ input:focus,textarea:focus{border-color:var(--orange);}
 #scr-busk{justify-content:center;align-items:center;gap:14px;padding:24px;}
 .busk-pad{padding:0;border-radius:10px;width:100%;aspect-ratio:1;font-size:32px;display:flex;align-items:center;justify-content:center;border:3px solid transparent;transition:filter .1s;}
 .busk-pad.lit{filter:brightness(2);}
+/* DRUG DEAL MINI-GAME */
+#scr-deal{padding:0;}
+#deal-canvas{display:block;width:100%;background:#05050f;}
 /* DODGE OVERLAY */
 #dodge-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9500;flex-direction:column;align-items:center;justify-content:center;gap:20px;}
 #dodge-overlay h2{color:var(--red);font-size:26px;text-align:center;}
@@ -211,6 +214,18 @@ input:focus,textarea:focus{border-color:var(--orange);}
   <div id="busk-pads" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:280px;padding:8px;"></div>
   <p id="busk-status" style="color:var(--dim);font-size:13px;text-align:center;min-height:20px;"></p>
   <button class="btn btn-d" id="btn-busk-bail" style="max-width:220px;width:100%;">Give Up</button>
+</div>
+
+<!-- DRUG DEAL MINI-GAME -->
+<div id="scr-deal" class="screen">
+  <div class="bar"><span class="bar-title" id="deal-title">🤝 The Exchange</span><div class="cash-disp">$<span id="deal-cash">0</span></div></div>
+  <div id="deal-info" style="padding:6px 12px;color:var(--dim);font-size:12px;flex-shrink:0;"></div>
+  <canvas id="deal-canvas" height="280"></canvas>
+  <div style="padding:10px;display:flex;gap:10px;flex-shrink:0;">
+    <button class="btn btn-r" id="btn-deal-cool" style="flex:4;font-size:20px;padding:16px;letter-spacing:1px;">STAY COOL</button>
+    <button class="btn btn-d" id="btn-deal-bail" style="flex:1;font-size:13px;">BAIL</button>
+  </div>
+  <div id="deal-status" style="padding:6px 12px;color:var(--dim);font-size:12px;min-height:32px;flex-shrink:0;"></div>
 </div>
 
 <!-- DODGE ALERT OVERLAY -->
@@ -540,10 +555,31 @@ function newGame(skills){
     diseases:[],
     shankUsedThisStop:false,shankStunned:false,
     hustleUsed:false,buskUsed:false,
+    methCookUsed:false,cokeCookUsed:false,
     rations:'normal',
+    drugs:{weed:0,coke:0,meth:0,shine:0,pills:0},
+    drugStatus:{weedReadyAt:-1,shineReadyAt:-1},
     phase:'travel',log:[],players:{},
   };
 }
+
+const DRUG_CATALOG=[
+  {id:'weed', name:'Weed',      emoji:'🌿',buy:20, sell:55, makeType:'grow', yield:[3,6],cost:0,  desc:'Bales of it. For the long road.'},
+  {id:'coke', name:'Cocaine',   emoji:'🤍',buy:95, sell:270,makeType:'cook', yield:[2,4],cost:50, desc:'Colombian grade. Handle with care.'},
+  {id:'meth', name:'Crystal',   emoji:'💎',buy:60, sell:185,makeType:'lab',  yield:[2,5],cost:40, desc:'Two-headed chemistry. Smells like victory.'},
+  {id:'shine',name:'Moonshine', emoji:'🫙',buy:22, sell:60, makeType:'still',yield:[4,8],cost:0,  desc:'100-proof rocket fuel. Grandma\'s recipe.'},
+  {id:'pills',name:'Pills',     emoji:'💊',buy:14, sell:38, makeType:null,   yield:[0,0],cost:0,  desc:'Unspecified. All flavors. All shapes.'},
+];
+const FIENDS=[
+  {name:'Dirty Mike',   want:'weed', mult:0.9,  risk:0.08,emoji:'🤤'},
+  {name:'El Gordo',     want:'coke', mult:1.15, risk:0.18,emoji:'🤠'},
+  {name:'Tweaker Tim',  want:'meth', mult:1.08, risk:0.14,emoji:'😬'},
+  {name:'Uncle Jimbo',  want:'shine',mult:0.95, risk:0.07,emoji:'🍺'},
+  {name:'Dr. Feelgood', want:'pills',mult:1.2,  risk:0.22,emoji:'👨‍⚕️'},
+  {name:'Smokey Ray',   want:'weed', mult:1.0,  risk:0.10,emoji:'😎'},
+  {name:'The Colonel',  want:'coke', mult:1.35, risk:0.28,emoji:'🎩'},
+  {name:'Marisol',      want:'meth', mult:0.95, risk:0.11,emoji:'💅'},
+];
 
 const Store={
   savePlayer(){localStorage.setItem(CFG.STORE_KEY,JSON.stringify(S.playerData));},
@@ -892,6 +928,7 @@ const Game={
       {i:'🎒',v:g.supplies,c:'var(--text)'},
       {i:'🕵️',v:g.disguises,c:'var(--text)'},
       {i:'🔋',v:g.laserAmmo,c:'var(--blue)'},
+      {i:'💊',v:Object.values(g.drugs||{}).reduce((a,b)=>a+b,0),c:'var(--dim)'},
     ];
     for(const ch of chips){const chip=el('div',{class:'stat-chip'});mount(chip,el('span',{class:'si',txt:ch.i}),el('span',{class:'sv',style:'color:'+ch.c,txt:String(ch.v)}));bar.appendChild(chip);}
     // Disease badges
@@ -966,7 +1003,31 @@ const Game={
       rGrid.appendChild(rb);
     }
     rationBox.appendChild(rGrid);area.appendChild(rationBox);
-    const logWrap=el('div',{style:'margin-top:8px;'});
+    // ── Drug Operations ──
+    const drugSect=el('div',{style:'background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;'});
+    drugSect.appendChild(el('div',{class:'field-label',style:'margin-bottom:6px;',txt:'💊 Drug Operations'}));
+    const drugRow=el('div',{style:'display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;'});
+    mount(drugRow,
+      el('button',{class:'btn btn-d',id:'act-drugs-buy',style:'font-size:11px;padding:8px 4px;',txt:'🛒 Buy'}),
+      el('button',{class:'btn btn-d',id:'act-drugs-make',style:'font-size:11px;padding:8px 4px;',txt:'🧪 Make'}),
+      el('button',{class:'btn btn-d',id:'act-drugs-sell',style:'font-size:11px;padding:8px 4px;',txt:'📱 Sell'})
+    );
+    drugSect.appendChild(drugRow);area.appendChild(drugSect);
+    // ── Convoy player list ──
+    const allPids=[S.playerId,...Object.keys(S.players).filter(pid=>pid!==S.playerId)];
+    const pBox=el('div',{style:'background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:8px;'});
+    pBox.appendChild(el('div',{class:'field-label',style:'margin-bottom:4px;',txt:'👥 Convoy ('+allPids.length+')'}));
+    for(const pid of allPids){
+      const isMe=pid===S.playerId;
+      const pName=isMe?((S.playerData&&S.playerData.name)||'You'):((S.players[pid]&&S.players[pid].name)||'Unknown');
+      const alive=!(g.players&&g.players[pid]&&g.players[pid].alive===false);
+      const row=el('div',{style:'display:flex;align-items:center;gap:5px;font-size:12px;margin-bottom:2px;'+(isMe?'color:var(--orange);':'color:var(--dim);')});
+      mount(row,el('span',{txt:alive?'🟢':'💀'}),el('span',{txt:pName+(isMe?' (you)':'')}));
+      pBox.appendChild(row);
+    }
+    area.appendChild(pBox);
+    // ── Log ──
+    const logWrap=el('div',{style:'margin-top:4px;'});
     const recentLog=(g.log||[]).slice(-8).reverse();
     for(const entry of recentLog)logWrap.appendChild(el('div',{class:'log-item '+(entry.bad?'bad':entry.good?'good':''),txt:entry.txt}));
     area.appendChild(logWrap);
@@ -978,6 +1039,9 @@ const Game={
     const hu=$('act-hustle');if(hu)hu.addEventListener('click',()=>Actions.hustle());
     const bk=$('act-busk');if(bk)bk.addEventListener('click',()=>Actions.busk());
     const sk=$('act-shank');if(sk)sk.addEventListener('click',()=>Actions.shank());
+    const db=$('act-drugs-buy');if(db)db.addEventListener('click',()=>DrugGame.showBuy());
+    const dm=$('act-drugs-make');if(dm)dm.addEventListener('click',()=>DrugGame.showMake());
+    const ds2=$('act-drugs-sell');if(ds2)ds2.addEventListener('click',()=>DrugGame.showSell());
   },
   addLog(txt,bad,good){
     if(!S.game)return;
@@ -1042,7 +1106,7 @@ const Actions={
   _travelArrive(){
     TravelAnim.stop();MapAnim.stopTravel();
     const g=S.game,nextIdx=Actions._travelNextStopIdx;
-    g.shankUsedThisStop=false;g.shankStunned=false;g.hustleUsed=false;g.buskUsed=false;
+    g.shankUsedThisStop=false;g.shankStunned=false;g.hustleUsed=false;g.buskUsed=false;g.methCookUsed=false;g.cokeCookUsed=false;
     g.fuel-=20+Math.floor(Math.random()*15);
     // Ration effects
     const rationCost={tiny_tim:0,normal:1,fat:2,cholesterol:3}[g.rations||'normal']||1;
@@ -1573,6 +1637,312 @@ const MiniGame={
   },
 };
 
+// ── Drug System ───────────────────────────────────────────────────────────────
+const DrugGame={
+  _dealRaf:null,_dealHeat:0,_dealFrame:0,_dealDuration:480,
+  _pendingDrug:null,_pendingQty:0,_pendingPrice:0,_pendingFiend:null,
+  _coolPressed:false,_sirens:[],
+
+  _priceMod(si){
+    if(si<=2)return{buy:1.3,sell:0.65};
+    if(si<=5)return{buy:1.0,sell:0.85};
+    if(si<=8)return{buy:0.85,sell:1.0};
+    return{buy:0.70,sell:1.35};
+  },
+
+  showHub(){
+    const area=$('action-area');if(!area)return;
+    clr(area);
+    const g=S.game;
+    const inv=g.drugs||{};
+    const total=Object.values(inv).reduce((a,b)=>a+b,0);
+    const invBox=el('div',{style:'background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;'});
+    invBox.appendChild(el('div',{class:'field-label',style:'margin-bottom:5px;',txt:'💊 Your Stash'}));
+    if(total===0){invBox.appendChild(el('div',{style:'color:var(--dim);font-size:12px;',txt:'Empty. Nothing but ambition.'}));}
+    else{const row=el('div',{style:'display:flex;flex-wrap:wrap;gap:6px;'});for(const d of DRUG_CATALOG){if((inv[d.id]||0)>0)row.appendChild(el('span',{style:'color:var(--orange);font-size:12px;',txt:d.emoji+' '+(inv[d.id]||0)+' '+d.name}));}invBox.appendChild(row);}
+    area.appendChild(invBox);
+    const grid=el('div',{style:'display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:8px;'});
+    const buyBtn=el('button',{class:'btn btn-d',style:'font-size:13px;padding:12px;text-align:left;'});
+    buyBtn.textContent='🛒 Buy Drugs  —  Purchase supply from local market';
+    const makeBtn=el('button',{class:'btn btn-d',style:'font-size:13px;padding:12px;text-align:left;'});
+    makeBtn.textContent='🧪 Make Drugs  —  Cook, grow, or distill your own';
+    const sellBtn=el('button',{class:'btn btn-d',style:'font-size:13px;padding:12px;text-align:left;'});
+    sellBtn.textContent='📱 Sell Drugs  —  Call your buyers on the burner phone';
+    buyBtn.addEventListener('click',()=>DrugGame.showBuy());
+    makeBtn.addEventListener('click',()=>DrugGame.showMake());
+    sellBtn.addEventListener('click',()=>DrugGame.showSell());
+    mount(grid,buyBtn,makeBtn,sellBtn);
+    area.appendChild(grid);
+    const back=el('button',{class:'btn btn-d',txt:'← Back to Trail'});
+    back.addEventListener('click',()=>Game.renderTravel());
+    area.appendChild(back);
+  },
+
+  showBuy(){
+    const area=$('action-area');if(!area)return;clr(area);
+    const g=S.game;const mod=DrugGame._priceMod(g.stopIdx||0);
+    const hdr=el('div',{style:'background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;'});
+    mount(hdr,el('div',{class:'field-label',txt:'🛒 Street Market'}),el('div',{style:'color:var(--dim);font-size:11px;margin-top:2px;',txt:'Cash: $'+g.cash+'  |  '+(mod.buy>1?'Expensive market 📈':'Cheap market 📉')}));
+    area.appendChild(hdr);
+    for(const d of DRUG_CATALOG){
+      const price=Math.round(d.buy*mod.buy);
+      const box=el('div',{style:'background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;margin-bottom:5px;display:flex;align-items:center;gap:8px;'});
+      const info=el('div',{style:'flex:1;'});
+      info.appendChild(el('div',{style:'color:var(--orange);font-weight:bold;font-size:13px;',txt:d.emoji+' '+d.name}));
+      info.appendChild(el('div',{style:'color:var(--dim);font-size:11px;',txt:d.desc}));
+      const own=el('span',{style:'color:var(--dim);font-size:11px;',txt:'×'+(g.drugs[d.id]||0)});
+      const btn=el('button',{class:'btn btn-s',style:'white-space:nowrap;padding:6px 10px;font-size:12px;',txt:'$'+price});
+      btn.addEventListener('click',()=>{
+        if(g.cash<price){toast('Not enough cash','bad','💸');return;}
+        g.cash-=price;g.drugs[d.id]=(g.drugs[d.id]||0)+1;
+        own.textContent='×'+(g.drugs[d.id]||0);Store.saveGame();Game.renderStats();
+        toast('+1 '+d.name,'info',d.emoji);
+      });
+      mount(box,info,own,btn);area.appendChild(box);
+    }
+    const back=el('button',{class:'btn btn-d',style:'margin-top:4px;',txt:'← Back'});
+    back.addEventListener('click',()=>DrugGame.showHub());area.appendChild(back);
+  },
+
+  showMake(){
+    const area=$('action-area');if(!area)return;clr(area);
+    const g=S.game;const ds=g.drugStatus||{};
+    area.appendChild(el('div',{style:'color:var(--orange);font-weight:bold;font-size:14px;padding:4px 2px 8px;',txt:'🧪 Production Lab'}));
+    // Meth lab
+    area.appendChild(DrugGame._makeEntry('💎','Cook Crystal Meth','Timing slider — precision chemistry. Costs $40 chemicals.',
+      ()=>DrugGame.startMakeMeth(),'COOK',g.methCookUsed));
+    // Coke processing
+    area.appendChild(DrugGame._makeEntry('🤍','Process Cocaine','Rapid-tap — 15× in 5 seconds. Costs $50 equipment.',
+      ()=>DrugGame.startMakeCoke(),'PROCESS',g.cokeCookUsed));
+    // Weed grow
+    const wr=ds.weedReadyAt>=0&&g.stopIdx>=ds.weedReadyAt;
+    const wp=ds.weedReadyAt>=0&&!wr;
+    area.appendChild(DrugGame._makeEntry('🌿','Grow Marijuana','Passive — plant now, harvest in 2 stops.',
+      ()=>DrugGame.actionWeed(),wr?'HARVEST':wp?'Growing… ('+(ds.weedReadyAt-g.stopIdx)+' stop(s) left)':'PLANT',wp));
+    // Moonshine
+    const sr=ds.shineReadyAt>=0&&g.stopIdx>=ds.shineReadyAt;
+    const sp=ds.shineReadyAt>=0&&!sr;
+    area.appendChild(DrugGame._makeEntry('🫙','Run Moonshine Still','Passive — start the still, collect next stop.',
+      ()=>DrugGame.actionShine(),sr?'COLLECT':sp?'Still running…':'START STILL',sp));
+    const back=el('button',{class:'btn btn-d',style:'margin-top:4px;',txt:'← Back'});
+    back.addEventListener('click',()=>DrugGame.showHub());area.appendChild(back);
+  },
+
+  _makeEntry(emoji,title,desc,fn,btnLabel,disabled){
+    const box=el('div',{style:'background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;margin-bottom:6px;'});
+    mount(box,el('div',{style:'color:var(--orange);font-weight:bold;margin-bottom:2px;',txt:emoji+' '+title}),el('div',{style:'color:var(--dim);font-size:11px;margin-bottom:6px;',txt:desc}));
+    const btn=el('button',{class:'btn btn-s'+(disabled?' btn-used':''),style:'width:100%;font-size:12px;',txt:btnLabel});
+    if(!disabled)btn.addEventListener('click',fn);box.appendChild(btn);return box;
+  },
+
+  startMakeMeth(){
+    const g=S.game;if(!g||g.methCookUsed){toast('Already cooked this stop','bad','⏳');return;}
+    const area=$('action-area');clr(area);
+    area.appendChild(el('div',{style:'color:var(--orange);font-weight:bold;font-size:14px;padding:4px 0 6px;',txt:'💎 Cook Crystal Meth'}));
+    area.appendChild(el('div',{style:'color:var(--dim);font-size:12px;margin-bottom:8px;',txt:'Hit the button when slider is in the green zone. $40 chemicals.'}));
+    const cv=document.createElement('canvas');cv.height=64;cv.style.cssText='width:100%;display:block;border-radius:6px;border:1px solid var(--border);';
+    area.appendChild(cv);
+    const stopBtn=el('button',{class:'btn btn-o',style:'width:100%;font-size:18px;padding:14px;margin-top:8px;',txt:'⚗️ APPLY HEAT'});
+    const bailBtn=el('button',{class:'btn btn-d',style:'width:100%;margin-top:6px;',txt:'← Cancel'});
+    area.appendChild(stopBtn);area.appendChild(bailBtn);
+    let pos=0,dir=1,raf=null;
+    const skill=(g.skills&&g.skills.smooth)||40;
+    const zoneW=8+skill*0.22,zoneX=50-zoneW/2;
+    const loop=()=>{
+      pos+=dir*1.1;if(pos>=100||pos<=0)dir*=-1;
+      const W=cv.offsetWidth||300,H=64;if(cv.width!==W){cv.width=W;cv.height=H;}
+      const c=cv.getContext('2d');
+      c.fillStyle='#0a0a0a';c.fillRect(0,0,W,H);
+      c.fillStyle='#00aa44';c.fillRect(W*zoneX/100,10,W*zoneW/100,H-20);
+      c.fillStyle='rgba(0,180,60,0.15)';c.fillRect(W*zoneX/100,0,W*zoneW/100,H);
+      const slX=W*pos/100;
+      c.fillStyle='#ff6600';c.fillRect(slX-3,6,6,H-12);
+      c.fillStyle='#fff';c.fillRect(slX-1,6,2,H-12);
+      raf=requestAnimationFrame(loop);
+    };
+    raf=requestAnimationFrame(loop);
+    const finish=(inZone)=>{
+      cancelAnimationFrame(raf);
+      if(inZone){const amt=2+Math.floor(Math.random()*3);g.drugs.meth=(g.drugs.meth||0)+amt;g.cash=Math.max(0,g.cash-40);Game.addLog('Cooked '+amt+' units Crystal. -$40.',false,true);toast('+'+amt+' Crystal','info','💎');}
+      else{g.cash=Math.max(0,g.cash-40);Game.addLog('Cook failed. Lost $40 in chemicals.',true);toast('Failed cook! -$40','bad','💥');}
+      g.methCookUsed=true;Store.saveGame();Game.renderStats();DrugGame.showMake();
+    };
+    stopBtn.addEventListener('click',()=>finish(pos>=zoneX&&pos<=zoneX+zoneW));
+    bailBtn.addEventListener('click',()=>{cancelAnimationFrame(raf);DrugGame.showMake();});
+  },
+
+  startMakeCoke(){
+    const g=S.game;if(!g||g.cokeCookUsed){toast('Already processed this stop','bad','⏳');return;}
+    const area=$('action-area');clr(area);
+    area.appendChild(el('div',{style:'color:var(--orange);font-weight:bold;font-size:14px;padding:4px 0 4px;',txt:'🤍 Process Cocaine'}));
+    area.appendChild(el('div',{style:'color:var(--dim);font-size:12px;margin-bottom:8px;',txt:'Tap 15× in 5 seconds to process the batch. $50 equipment.'}));
+    let taps=0;const TARGET=15,TIME=5000;
+    const tapBox=el('div',{style:'text-align:center;'});
+    const timerEl=el('div',{style:'color:var(--dim);font-size:13px;margin-bottom:4px;',txt:'5.0s'});
+    const cntEl=el('div',{style:'color:var(--green);font-size:30px;font-weight:bold;margin-bottom:10px;',txt:'0 / 15'});
+    const bigBtn=el('button',{class:'btn btn-o',style:'width:100%;font-size:22px;padding:20px;letter-spacing:2px;',txt:'TAP TAP TAP'});
+    mount(tapBox,timerEl,cntEl,bigBtn);area.appendChild(tapBox);
+    area.appendChild(el('button',{class:'btn btn-d',style:'width:100%;margin-top:8px;',txt:'← Cancel'}) );
+    area.lastChild.addEventListener('click',()=>{clearInterval(iv);DrugGame.showMake();});
+    const start=Date.now();
+    const iv=setInterval(()=>{
+      const rem=Math.max(0,(TIME-(Date.now()-start))/1000);
+      timerEl.textContent=rem.toFixed(1)+'s';
+      if(rem<=0){
+        clearInterval(iv);bigBtn.disabled=true;
+        const ok=taps>=TARGET;
+        if(ok){const amt=2+Math.floor(Math.random()*3);g.drugs.coke=(g.drugs.coke||0)+amt;g.cash=Math.max(0,g.cash-50);Game.addLog('Processed '+amt+' units coke. -$50.',false,true);toast('+'+amt+' Cocaine','info','🤍');}
+        else{g.cash=Math.max(0,g.cash-50);Game.addLog('Processing failed ('+taps+'/15 taps). -$50 wasted.',true);toast('Need 15 taps! -$50','bad','💥');}
+        g.cokeCookUsed=true;Store.saveGame();Game.renderStats();
+        setTimeout(()=>DrugGame.showMake(),1200);
+      }
+    },100);
+    bigBtn.addEventListener('click',()=>{if(Date.now()-start>=TIME)return;taps++;cntEl.textContent=taps+' / 15';});
+  },
+
+  actionWeed(){
+    const g=S.game;const ds=g.drugStatus=g.drugStatus||{weedReadyAt:-1,shineReadyAt:-1};
+    if(ds.weedReadyAt>=0&&g.stopIdx>=ds.weedReadyAt){
+      const amt=4+Math.floor(Math.random()*5);g.drugs.weed=(g.drugs.weed||0)+amt;ds.weedReadyAt=-1;
+      Game.addLog('Harvested '+amt+' lbs weed!',false,true);toast('+'+amt+' Weed harvested','info','🌿');
+    }else if(ds.weedReadyAt<0){
+      ds.weedReadyAt=g.stopIdx+2;Game.addLog('Planted marijuana. Ready in 2 stops.',false,true);toast('Weed planted — harvest in 2 stops','info','🌱');
+    }
+    Store.saveGame();Game.renderStats();DrugGame.showMake();
+  },
+
+  actionShine(){
+    const g=S.game;const ds=g.drugStatus=g.drugStatus||{weedReadyAt:-1,shineReadyAt:-1};
+    if(ds.shineReadyAt>=0&&g.stopIdx>=ds.shineReadyAt){
+      const amt=5+Math.floor(Math.random()*6);g.drugs.shine=(g.drugs.shine||0)+amt;ds.shineReadyAt=-1;
+      Game.addLog('Collected '+amt+' jars moonshine!',false,true);toast('+'+amt+' Moonshine','info','🫙');
+    }else if(ds.shineReadyAt<0){
+      ds.shineReadyAt=g.stopIdx+1;Game.addLog('Still running. Collect next stop.',false,true);toast('Still running — collect next stop','info','🫙');
+    }
+    Store.saveGame();Game.renderStats();DrugGame.showMake();
+  },
+
+  showSell(){
+    const area=$('action-area');if(!area)return;clr(area);
+    const g=S.game;const inv=g.drugs||{};
+    const total=Object.values(inv).reduce((a,b)=>a+b,0);
+    area.appendChild(el('div',{style:'color:var(--orange);font-weight:bold;font-size:14px;padding:4px 0 6px;',txt:'📱 Burner Phone'}));
+    if(total===0){
+      area.appendChild(el('div',{style:'background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;color:var(--dim);font-size:13px;text-align:center;',txt:'Nothing in the stash. Hit Make Drugs or Buy Drugs first.'}));
+      const b=el('button',{class:'btn btn-d',style:'margin-top:8px;',txt:'← Back'});b.addEventListener('click',()=>DrugGame.showHub());area.appendChild(b);return;
+    }
+    const mod=DrugGame._priceMod(g.stopIdx||0);
+    const available=FIENDS.filter(f=>(inv[f.want]||0)>0);
+    if(available.length===0){area.appendChild(el('div',{style:'color:var(--dim);font-size:13px;padding:8px;',txt:'None of your contacts want what you\'re holding.'}));}
+    else{
+      for(const f of available){
+        const d=DRUG_CATALOG.find(x=>x.id===f.want);if(!d)continue;
+        const priceEa=Math.round(d.sell*mod.sell*f.mult);
+        const qty=inv[d.id]||0;
+        const box=el('div',{style:'background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:6px;'});
+        mount(box,
+          el('div',{style:'color:var(--orange);font-weight:bold;',txt:f.emoji+' '+f.name}),
+          el('div',{style:'color:var(--text);font-size:12px;',txt:'Wants: '+d.emoji+' '+d.name+' × '+qty+' units'}),
+          el('div',{style:'color:var(--green);font-size:13px;font-weight:bold;',txt:'Offer: $'+priceEa+'/unit = $'+(priceEa*qty)+' total'})
+        );
+        if(f.risk>0.15)box.appendChild(el('div',{style:'color:var(--red);font-size:11px;',txt:'⚠ High-risk contact ('+Math.round(f.risk*100)+'% bust chance)'}));
+        const dealBtn=el('button',{class:'btn btn-g',style:'width:100%;margin-top:6px;font-size:13px;',txt:'📲 Make the Deal  →  win mini-game to collect'});
+        dealBtn.addEventListener('click',()=>DrugGame.startDeal(f,d,qty,priceEa));
+        box.appendChild(dealBtn);area.appendChild(box);
+      }
+    }
+    const back=el('button',{class:'btn btn-d',style:'margin-top:4px;',txt:'← Back'});
+    back.addEventListener('click',()=>DrugGame.showHub());area.appendChild(back);
+  },
+
+  startDeal(fiend,drug,qty,pricePerUnit){
+    DrugGame._pendingFiend=fiend;DrugGame._pendingDrug=drug;
+    DrugGame._pendingQty=qty;DrugGame._pendingPrice=pricePerUnit;
+    DrugGame._dealHeat=0;DrugGame._dealFrame=0;DrugGame._coolPressed=false;DrugGame._sirens=[];
+    const canvas=$('deal-canvas');if(canvas)canvas.height=280;
+    const t=$('deal-title');if(t)t.textContent='🤝 '+fiend.emoji+' '+fiend.name+' — The Drop';
+    const dc=$('deal-cash');if(dc)dc.textContent=String(qty*pricePerUnit);
+    const info=$('deal-info');if(info)info.textContent=drug.emoji+' '+qty+' units of '+drug.name+' | Survive 8s without getting too hot!';
+    const ds=$('deal-status');if(ds)ds.textContent='';
+    UI.show('scr-deal');
+    if(DrugGame._dealRaf)cancelAnimationFrame(DrugGame._dealRaf);
+    DrugGame._dealLoop();
+  },
+
+  _dealLoop(){
+    const canvas=$('deal-canvas');if(!canvas||!document.getElementById('scr-deal').classList.contains('active')){DrugGame._dealRaf=null;return;}
+    const ctx=canvas.getContext('2d');
+    const W=canvas.offsetWidth||320;if(canvas.width!==W){canvas.width=W;canvas.height=280;}
+    const H=canvas.height;
+    DrugGame._dealFrame++;const f=DrugGame._dealFrame;
+    // Heat
+    let rise=0.55+Math.random()*0.35;
+    if(f%120===0&&Math.random()<DrugGame._pendingFiend.risk*2){
+      DrugGame._sirens.push({life:50,text:['🚔 Cop car slows down!','🕵️ Someone watching you...','📡 Radio chatter nearby...','👀 Eyes on the stash...','🚁 Chopper overhead!'][Math.floor(Math.random()*5)]});
+      rise+=15;
+    }
+    DrugGame._dealHeat=Math.min(100,DrugGame._dealHeat+rise);
+    if(DrugGame._coolPressed){DrugGame._dealHeat=Math.max(0,DrugGame._dealHeat-22);DrugGame._coolPressed=false;}
+    DrugGame._sirens=DrugGame._sirens.filter(s=>{s.life--;return s.life>0;});
+    // Draw phone screen
+    ctx.fillStyle='#040414';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#111128';
+    const pw=W*.82,px=(W-pw)/2;ctx.fillRect(px,8,pw,H-16);
+    ctx.strokeStyle='#222';ctx.lineWidth=2;ctx.strokeRect(px,8,pw,H-16);
+    // Heat bar
+    const bx=px+pw*.07,bw=pw*.86,by=28,bh=26;
+    ctx.fillStyle='#0a0a0a';ctx.fillRect(bx,by,bw,bh);
+    const hPct=DrugGame._dealHeat/100;
+    const hColor=hPct>0.75?'#ff1a00':hPct>0.5?'#ff7700':'#22dd44';
+    ctx.fillStyle=hColor;ctx.fillRect(bx,by,bw*hPct,bh);
+    ctx.strokeStyle='#333';ctx.lineWidth=1;ctx.strokeRect(bx,by,bw,bh);
+    ctx.fillStyle='#fff';ctx.font='bold 10px monospace';ctx.textAlign='center';
+    ctx.fillText('🌡️  HEAT  '+Math.round(DrugGame._dealHeat)+'%',W/2,by+17);
+    // Countdown
+    const secLeft=Math.max(0,Math.ceil((DrugGame._dealDuration-f)/60));
+    ctx.font='bold 56px Courier New';ctx.textAlign='center';
+    ctx.fillStyle=secLeft<=3?'#ff2200':'#ffaa00';
+    ctx.fillText(String(secLeft),W/2,H*0.55);
+    ctx.font='12px monospace';ctx.fillStyle='#555';ctx.fillText('seconds remaining',W/2,H*0.62);
+    // Deal info
+    ctx.font='bold 12px monospace';ctx.fillStyle='#33ff88';ctx.textAlign='center';
+    ctx.fillText(DrugGame._pendingDrug.emoji+' '+DrugGame._pendingQty+'×  $'+DrugGame._pendingPrice+'/unit  =  $'+(DrugGame._pendingQty*DrugGame._pendingPrice),W/2,H-32);
+    // Siren messages
+    for(let i=0;i<DrugGame._sirens.length;i++){
+      const s=DrugGame._sirens[i];
+      ctx.fillStyle='rgba(255,50,50,'+(s.life/50)+')';ctx.font='bold 12px monospace';
+      ctx.fillText(s.text,W/2,70+i*18);
+    }
+    ctx.textAlign='left';
+    // Check outcomes
+    if(DrugGame._dealHeat>=100){DrugGame._dealEnd(false);return;}
+    if(f>=DrugGame._dealDuration){DrugGame._dealEnd(true);return;}
+    DrugGame._dealRaf=requestAnimationFrame(()=>DrugGame._dealLoop());
+  },
+
+  _dealEnd(success){
+    if(DrugGame._dealRaf){cancelAnimationFrame(DrugGame._dealRaf);DrugGame._dealRaf=null;}
+    const g=S.game;const drug=DrugGame._pendingDrug;const fiend=DrugGame._pendingFiend;
+    const qty=DrugGame._pendingQty;const price=DrugGame._pendingPrice;
+    const ds=$('deal-status');
+    if(success){
+      const earned=qty*price;g.cash+=earned;
+      g.drugs[drug.id]=Math.max(0,(g.drugs[drug.id]||0)-qty);
+      Game.addLog('Sold '+qty+' '+drug.name+' to '+fiend.name+' for $'+earned+'!',false,true);
+      toast('+$'+earned,'info',fiend.emoji);
+      if(ds)ds.textContent='✅ Deal done! +$'+earned+' from '+fiend.name;
+    }else{
+      const fine=80+Math.floor(Math.random()*120);g.cash=Math.max(0,g.cash-fine);
+      g.drugs[drug.id]=0;g.sanity=Math.max(0,(g.sanity||100)-15);
+      Game.addLog('BUSTED by '+fiend.name+'\'s crew! Lost stash + $'+fine+' fine.',true);
+      toast('BUSTED! -$'+fine,'bad','🚔');
+      if(ds)ds.textContent='🚔 BUSTED! Stash seized. $'+fine+' fine. -15 sanity.';
+    }
+    Store.saveGame();Game.renderStats();
+    setTimeout(()=>{MapAnim.start();UI.show('scr-map');Game.renderTravel();},1900);
+  },
+};
+
 // ── DOOM Raycaster Hunt v16 ───────────────────────────────────────────────────
 const Hunt={
   _raf:null,_timer:null,_running:false,
@@ -1845,14 +2215,14 @@ const Hunt={
       if(Hunt._zBuf[col]<proj.dist-0.05&&e.alive)continue;
       const sh=proj.spriteH*e.type.scale*(e.alive?1:Math.max(0,(e.deathAge||0)/18));
       const sw=sh*0.65;
-      const sx=proj.screenX-sw/2,sy=H/2-sh*0.9;
+      const sx=proj.screenX-sw/2,sy=H/2-sh*0.55; // center sprite at eye-level horizon
       if(!e.alive){Hunt._drawDeathSplat(ctx,proj.screenX,H/2,sw);continue;}
       Hunt._drawEnemy3D(ctx,e,sx,sy,sw,sh,proj.dist);
     }
   },
 
   _drawEnemy3D(ctx,e,sx,sy,sw,sh,dist){
-    const al=Math.min(1,1.4/Math.max(0.6,dist-0.5));
+    const al=1.0; // fully opaque — distance fog handled by wall shading, not sprite alpha
     const t=e.type;
     if(t.isBat){Hunt._drawBat3D(ctx,sx+sw/2,sy+sh/2,sw,sh,al);return;}
     if(t.isDemon){Hunt._drawDemon3D(ctx,sx+sw/2,sy,sw,sh,al);return;}
@@ -2186,6 +2556,12 @@ function bindEvents(){
   const btnHustleBail=$('btn-hustle-bail');if(btnHustleBail)btnHustleBail.addEventListener('click',()=>{if(MiniGame._hustleRaf){cancelAnimationFrame(MiniGame._hustleRaf);MiniGame._hustleRaf=null;}if(S.game)S.game.hustleUsed=true;Store.saveGame();UI.show('scr-map');Game.renderTravel();});
   // Busk mini-game
   const btnBuskBail=$('btn-busk-bail');if(btnBuskBail)btnBuskBail.addEventListener('click',()=>MiniGame.stopBusk());
+  // Drug deal mini-game
+  const btnDealCool=$('btn-deal-cool');if(btnDealCool)btnDealCool.addEventListener('click',()=>{DrugGame._coolPressed=true;});
+  const btnDealBail=$('btn-deal-bail');if(btnDealBail)btnDealBail.addEventListener('click',()=>{
+    if(DrugGame._dealRaf){cancelAnimationFrame(DrugGame._dealRaf);DrugGame._dealRaf=null;}
+    MapAnim.start();UI.show('scr-map');Game.renderTravel();
+  });
   // Dodge overlay
   const btnDodge=$('btn-dodge');
   if(btnDodge)btnDodge.addEventListener('click',()=>{
@@ -2263,9 +2639,12 @@ function bindEvents(){
   UI.show=function(id){
     origShow(id);
     if(id==='scr-shop')Shop.open();
+    if(id==='scr-map')MapAnim.start(); // restart map animation when returning to map
     if(id!=='scr-map')MapAnim.stop();
     if(id!=='scr-travel')TravelAnim.stop();
     if(id!=='scr-map'&&id!=='scr-hunt')Chiptune.stop();
+    // Stop deal mini-game RAF when navigating away
+    if(id!=='scr-deal'&&DrugGame._dealRaf){cancelAnimationFrame(DrugGame._dealRaf);DrugGame._dealRaf=null;}
     const chatArea=document.getElementById('chat-area');
     if(chatArea)chatArea.style.display=SETUP.includes(id)?'none':'';
   };
