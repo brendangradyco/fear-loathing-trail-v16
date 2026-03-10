@@ -51,7 +51,24 @@ Generated: 2026-03-09
 |    |                   | _travelArrive() -- prevents per-stop farming        |            |
 | 15 | UI                | Hustle/Busk show greyed "done" state when used      | DONE       |
 |    |                   | (.btn-used CSS: opacity 45%, pointer-events none)   |            |
-| 16 | Multiplayer       | PeerNet BATCNT default room -- CHUNK 2              | PENDING    |
+| 16 | Route Timeline    | Total distance rescaled to 5,000 miles              | DONE       |
+| 17 | Route Timeline    | map-canvas expanded to 200px; bottom 44% is route  | DONE       |
+|    |                   | timeline with car sprite + orange progress glow     |            |
+| 18 | Route Timeline    | City stops shown as evenly-spaced dots with emoji   | DONE       |
+|    |                   | labels; completed = green, current = orange pulse   |            |
+| 19 | Route Timeline    | 3 micro-event warning triangles between each stop  | DONE       |
+|    |                   | pair; passed dots dim; active dots show orange ▲    |            |
+| 20 | Route Timeline    | Car sprite moves in real-time along timeline;       | DONE       |
+|    |                   | headlight glow when traveling; miles label under    |            |
+| 21 | Travel Pacing     | Travel now real-time: ~30s per leg in MapAnim RAF   | DONE       |
+|    |                   | loop; stays on scr-map (no scr-travel switch)       |            |
+| 22 | Travel Pacing     | Progress pauses at 25/50/75% to fire micro-event   | DONE       |
+|    |                   | decision card in action-area; resumes after choice  |            |
+| 23 | Travel Pacing     | phase='traveling' shows "On the road..." UI panel  | DONE       |
+|    |                   | Page reload during traveling resets to 'travel'    |            |
+| 24 | Solo Reset        | Solo game (1 player) is NOT saved on page reload    | DONE       |
+|    |                   | Cash resets to default $350 on each fresh start     |            |
+| 25 | Multiplayer       | PeerNet BATCNT default room -- CHUNK 2              | PENDING    |
 | 17 | Multiplayer       | Room browser for full rooms -- CHUNK 2              | PENDING    |
 | 18 | Multiplayer       | In-game copy link button -- CHUNK 2                 | PENDING    |
 | 19 | Multiplayer       | AFK 45s auto-advance -- CHUNK 2                     | PENDING    |

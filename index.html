@@ -296,7 +296,7 @@ input:focus,textarea:focus{border-color:var(--orange);}
 
 <div id="scr-map" class="screen">
   <div class="game-bar" id="stat-bar"></div>
-  <canvas id="map-canvas" height="120"></canvas>
+  <canvas id="map-canvas" height="200"></canvas>
   <div class="action-area scroll" id="action-area"></div>
 </div>
 
@@ -391,16 +391,16 @@ const CFG={
 
 const TRAIL_STOPS=[
   {id:'start',   name:'Las Vegas, NV',     emoji:'🎰',lat:36.17,lon:-115.14,dist:0,    desc:'Where the dream died and the ether began.'},
-  {id:'phoenix', name:'Phoenix, AZ',       emoji:'🌵',lat:33.45,lon:-112.07,dist:290,  desc:'275 miles of desert psychosis before the border.'},
-  {id:'elpaso',  name:'El Paso, TX',       emoji:'🤠',lat:31.76,lon:-106.49,dist:740,  desc:'The Rio Grande. The sweat is real. The border is close.'},
-  {id:'mexico',  name:'Mexico City, MX',   emoji:'🌮',lat:19.43,lon:-99.13, dist:1400, desc:'7,350 feet of altitude and a million ways to disappear.'},
-  {id:'oaxaca',  name:'Oaxaca, MX',        emoji:'🏺',lat:17.07,lon:-96.72, dist:1800, desc:'Mezcal country. Everything here tastes like smoke and regret.'},
-  {id:'guatemala',name:'Guatemala City, GT',emoji:'☕',lat:14.63,lon:-90.51,dist:2300, desc:'The coffee is strong. The paranoia is stronger.'},
-  {id:'managua', name:'Managua, NI',       emoji:'🌋',lat:12.13,lon:-86.28, dist:2700, desc:'Volcanoes on every side. One of them might be you.'},
-  {id:'sanjose', name:'San José, CR',      emoji:'🦜',lat:9.93, lon:-84.09, dist:3050, desc:'Rainforest and rain. The birds here know things about you.'},
-  {id:'panama',  name:'Panama City, PA',   emoji:'🚢',lat:8.99, lon:-79.52, dist:3400, desc:'They shipped the car by boat. You crossed on nerve alone.'},
-  {id:'medellin',name:'Medellín, CO',      emoji:'💐',lat:6.24, lon:-75.57, dist:3850, desc:'The city of eternal spring. Everyone smiles too much.'},
-  {id:'bogota',  name:'Bogotá, Colombia',  emoji:'🏁',lat:4.71, lon:-74.07, dist:4200, desc:'THE END. Colombia receives you. The bats followed the whole way.'},
+  {id:'phoenix', name:'Phoenix, AZ',       emoji:'🌵',lat:33.45,lon:-112.07,dist:345,  desc:'345 miles of desert psychosis before the border.'},
+  {id:'elpaso',  name:'El Paso, TX',       emoji:'🤠',lat:31.76,lon:-106.49,dist:880,  desc:'The Rio Grande. The sweat is real. The border is close.'},
+  {id:'mexico',  name:'Mexico City, MX',   emoji:'🌮',lat:19.43,lon:-99.13, dist:1665, desc:'7,350 feet of altitude and a million ways to disappear.'},
+  {id:'oaxaca',  name:'Oaxaca, MX',        emoji:'🏺',lat:17.07,lon:-96.72, dist:2145, desc:'Mezcal country. Everything here tastes like smoke and regret.'},
+  {id:'guatemala',name:'Guatemala City, GT',emoji:'☕',lat:14.63,lon:-90.51,dist:2740, desc:'The coffee is strong. The paranoia is stronger.'},
+  {id:'managua', name:'Managua, NI',       emoji:'🌋',lat:12.13,lon:-86.28, dist:3215, desc:'Volcanoes on every side. One of them might be you.'},
+  {id:'sanjose', name:'San José, CR',      emoji:'🦜',lat:9.93, lon:-84.09, dist:3630, desc:'Rainforest and rain. The birds here know things about you.'},
+  {id:'panama',  name:'Panama City, PA',   emoji:'🚢',lat:8.99, lon:-79.52, dist:4050, desc:'They shipped the car by boat. You crossed on nerve alone.'},
+  {id:'medellin',name:'Medellín, CO',      emoji:'💐',lat:6.24, lon:-75.57, dist:4585, desc:'The city of eternal spring. Everyone smiles too much.'},
+  {id:'bogota',  name:'Bogotá, Colombia',  emoji:'🏁',lat:4.71, lon:-74.07, dist:5000, desc:'THE END. Colombia receives you. The bats followed the whole way.'},
 ];
 
 const EVENTS=[
@@ -644,68 +644,176 @@ const Avatar={
   },
 };
 
-// ── Metal Slug-style animated map canvas ──────────────────────────────────────
+// ── Animated map canvas + real-time route timeline ────────────────────────────
 const MapAnim={
   _raf:null,_frame:0,_scrollX:0,
-  start(){if(MapAnim._raf)return;MapAnim._frame=0;MapAnim._scrollX=0;MapAnim._loop();},
-  stop(){if(MapAnim._raf){cancelAnimationFrame(MapAnim._raf);MapAnim._raf=null;}},
-  _loop(){MapAnim._draw();MapAnim._raf=requestAnimationFrame(()=>MapAnim._loop());},
+  // Travel pacing state
+  _travelActive:false,_travelProg:0,_travelFrom:0,_travelTo:0,
+  _travelPaused:false,_microFired:[false,false,false],
+  _onMicroEvent:null,_onArrive:null,
+
+  start(){if(MapAnim._raf)return;MapAnim._frame=0;MapAnim._scrollX=0;MapAnim._tick();},
+  stop(){if(MapAnim._raf){cancelAnimationFrame(MapAnim._raf);MapAnim._raf=null;}MapAnim._travelActive=false;},
+
+  startTravel(from,to,onMicro,onArrive){
+    MapAnim._travelFrom=from;MapAnim._travelTo=to;
+    MapAnim._travelProg=0;MapAnim._travelPaused=false;
+    MapAnim._microFired=[false,false,false];
+    MapAnim._onMicroEvent=onMicro;MapAnim._onArrive=onArrive;
+    MapAnim._travelActive=true;
+    if(!MapAnim._raf)MapAnim.start();
+  },
+  resumeTravel(){MapAnim._travelPaused=false;},
+  stopTravel(){MapAnim._travelActive=false;MapAnim._travelPaused=false;MapAnim._travelProg=0;},
+
+  _tick(){
+    // Advance travel progress before drawing
+    if(MapAnim._travelActive&&!MapAnim._travelPaused){
+      MapAnim._travelProg+=1/1800; // ~30s per leg at 60fps
+      const thresh=[0.25,0.5,0.75];
+      for(let i=0;i<3;i++){
+        if(!MapAnim._microFired[i]&&MapAnim._travelProg>=thresh[i]){
+          MapAnim._microFired[i]=true;MapAnim._travelPaused=true;
+          if(MapAnim._onMicroEvent)MapAnim._onMicroEvent(i);
+          break;
+        }
+      }
+      if(MapAnim._travelProg>=1){
+        MapAnim._travelProg=1;MapAnim._travelActive=false;
+        const cb=MapAnim._onArrive;MapAnim._onArrive=null;
+        if(cb)cb();
+      }
+    }
+    MapAnim._draw();
+    MapAnim._raf=requestAnimationFrame(()=>MapAnim._tick());
+  },
+
   _draw(){
     const canvas=$('map-canvas');if(!canvas)return;
     const ctx=canvas.getContext('2d');
     canvas.width=canvas.offsetWidth||320;
-    const W=canvas.width,H=canvas.height||120;
+    const W=canvas.width,H=canvas.height||200;
     MapAnim._frame++;
     MapAnim._scrollX=(MapAnim._scrollX+1.5)%(W+80);
-    // Sky
-    const sky=ctx.createLinearGradient(0,0,0,H*0.6);
+    const TH=Math.floor(H*0.56); // scene / timeline split
+
+    // ── Animated road scene (top TH px) ──
+    const sky=ctx.createLinearGradient(0,0,0,TH*0.65);
     sky.addColorStop(0,'#0d0520');sky.addColorStop(1,'#2a0e00');
-    ctx.fillStyle=sky;ctx.fillRect(0,0,W,H*0.65);
-    // Far mountains (slow scroll)
+    ctx.fillStyle=sky;ctx.fillRect(0,0,W,TH);
     ctx.fillStyle='#1a0a00';
-    for(let i=0;i<9;i++){const x=((i*80-(MapAnim._scrollX*0.25))%(W+80)+W+80)%(W+80)-80;const h=20+(i*13)%22;ctx.beginPath();ctx.moveTo(x,H*0.6);ctx.lineTo(x+40,H*0.6-h);ctx.lineTo(x+80,H*0.6);ctx.fill();}
-    // Ground
-    ctx.fillStyle='#120500';ctx.fillRect(0,H*0.6,W,H*0.4);
-    // Road
-    ctx.fillStyle='#1e0e00';ctx.fillRect(0,H*0.64,W,H*0.22);
-    // Road markings (scrolling)
+    for(let i=0;i<9;i++){const x=((i*80-(MapAnim._scrollX*0.25))%(W+80)+W+80)%(W+80)-80;const mh=20+(i*13)%22;ctx.beginPath();ctx.moveTo(x,TH*0.65);ctx.lineTo(x+40,TH*0.65-mh);ctx.lineTo(x+80,TH*0.65);ctx.fill();}
+    ctx.fillStyle='#120500';ctx.fillRect(0,TH*0.65,W,TH*0.35);
+    ctx.fillStyle='#1e0e00';ctx.fillRect(0,TH*0.72,W,TH*0.22);
     ctx.fillStyle='#ff6600';ctx.globalAlpha=0.35;
-    for(let i=0;i<15;i++){const x=((i*38-MapAnim._scrollX)%W+W)%W;ctx.fillRect(x,H*0.73,18,2);}
+    for(let i=0;i<15;i++){const x=((i*38-MapAnim._scrollX)%W+W)%W;ctx.fillRect(x,TH*0.80,18,2);}
     ctx.globalAlpha=1;
-    // Car sprite
-    const carX=W*0.3,carY=H*0.65;
     const bounce=MapAnim._frame%8<4?0:1;
-    MapAnim._drawCar(ctx,carX,carY+bounce,W,H);
-    // Progress strip
+    MapAnim._drawCar(ctx,W*0.3,TH*0.72+bounce,W,H);
+
+    // ── Route timeline (bottom section) ──
+    MapAnim._drawTimeline(ctx,W,H,TH);
+  },
+
+  _drawTimeline(ctx,W,H,TH){
     const g=S.game;
-    if(g){
-      const stops=TRAIL_STOPS;
-      ctx.strokeStyle='#333';ctx.lineWidth=2;
-      ctx.beginPath();ctx.moveTo(10,H*0.92);ctx.lineTo(W-10,H*0.92);ctx.stroke();
-      ctx.strokeStyle='#ff6600';ctx.lineWidth=2;
-      const prog=g.stopIdx/(stops.length-1);
-      ctx.beginPath();ctx.moveTo(10,H*0.92);ctx.lineTo(10+prog*(W-20),H*0.92);ctx.stroke();
-      for(let i=0;i<stops.length;i++){
-        const x=10+i*(W-20)/(stops.length-1);
-        ctx.fillStyle=i<g.stopIdx?'#00ff88':i===g.stopIdx?'#ff6600':'#333';
-        ctx.beginPath();ctx.arc(x,H*0.92,i===g.stopIdx?4:2.5,0,Math.PI*2);ctx.fill();
-        if(i===0||i===stops.length-1||i===g.stopIdx){ctx.fillStyle='#aaa';ctx.font='7px monospace';ctx.textAlign='center';ctx.fillText(stops[i].emoji||stops[i].name.slice(0,3),x,H*0.88);}
+    const stops=TRAIL_STOPS;
+    const PAD=14;
+    const lineY=TH+Math.round((H-TH)*0.50);
+    const usableW=W-PAD*2;
+    const curIdx=g?Math.min(g.stopIdx,stops.length-1):0;
+    const prog=MapAnim._travelActive?MapAnim._travelProg:0;
+    const nextIdx=Math.min(curIdx+1,stops.length-1);
+
+    // Equal visual spacing (proportional to distance for mileage, equal for layout)
+    const stopX=stops.map((_,i)=>PAD+i/(stops.length-1)*usableW);
+
+    // Car position on timeline
+    const carTX=stopX[curIdx]+(stopX[nextIdx]-stopX[curIdx])*prog;
+
+    // Current total miles
+    const fromDist=stops[curIdx].dist;
+    const toDist=stops[nextIdx].dist;
+    const curMiles=Math.round(fromDist+(toDist-fromDist)*prog);
+
+    // Timeline background
+    ctx.fillStyle='#07020f';ctx.fillRect(0,TH,W,H-TH);
+    ctx.fillStyle='#2a0a00';ctx.fillRect(0,TH,W,2);
+
+    // Dim full route line
+    ctx.strokeStyle='#1e0808';ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(stopX[0],lineY);ctx.lineTo(stopX[stops.length-1],lineY);ctx.stroke();
+
+    // Completed portion — orange glow
+    ctx.strokeStyle='#ff5500';ctx.lineWidth=3;
+    ctx.shadowColor='#ff3300';ctx.shadowBlur=4;
+    ctx.beginPath();ctx.moveTo(stopX[0],lineY);ctx.lineTo(carTX,lineY);ctx.stroke();
+    ctx.shadowBlur=0;
+
+    // ── 3 micro-event dots per segment ──
+    const thresh=[0.25,0.5,0.75];
+    for(let si=0;si<stops.length-1;si++){
+      const x0=stopX[si],x1=stopX[si+1];
+      for(let ti=0;ti<3;ti++){
+        const mx=x0+(x1-x0)*thresh[ti];
+        const passed=si<curIdx||(si===curIdx&&prog>thresh[ti]+0.01);
+        const onCurrent=si===curIdx;
+        ctx.fillStyle=passed?'#442200':onCurrent?'#cc4400':'#1a1a1a';
+        ctx.strokeStyle=passed?'#884422':onCurrent?'#ff6600':'#2a2a2a';
+        ctx.lineWidth=1;
+        ctx.beginPath();ctx.arc(mx,lineY,2.8,0,Math.PI*2);ctx.fill();ctx.stroke();
+        // Warning marker above upcoming dots on current segment
+        if(onCurrent&&!passed){
+          ctx.fillStyle='rgba(255,120,0,0.8)';ctx.font='7px sans-serif';ctx.textAlign='center';
+          ctx.fillText('▲',mx,lineY-9);
+        }
       }
     }
+
+    // ── City stop dots ──
+    for(let i=0;i<stops.length;i++){
+      const x=stopX[i];const past=i<curIdx;const cur=i===curIdx;
+      ctx.fillStyle=past?'#00aa55':cur?'#ff6600':'#1c1c1c';
+      ctx.strokeStyle=past?'#00ff88':cur?'#ffaa00':'#444';
+      ctx.lineWidth=cur?2:1;
+      ctx.beginPath();ctx.arc(x,lineY,cur?5.5:3.5,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.fillStyle=past?'#777':cur?'#ffcc44':'#444';
+      ctx.font=(cur?'bold ':'')+Math.max(7,Math.min(9,Math.floor(usableW/(stops.length*2.2))))+'px monospace';
+      ctx.textAlign='center';
+      ctx.fillText(stops[i].emoji,x,lineY-12);
+    }
+
+    // ── Car sprite on timeline ──
+    if(!isFinite(carTX))return;
+    ctx.fillStyle='#ff6600';
+    ctx.fillRect(carTX-5,lineY-12,10,7);
+    ctx.fillRect(carTX-3,lineY-16,6,5);
+    ctx.fillStyle='#0a0000';
+    ctx.beginPath();ctx.arc(carTX-3,lineY-5,2.2,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(carTX+3,lineY-5,2.2,0,Math.PI*2);ctx.fill();
+    if(MapAnim._travelActive){
+      ctx.fillStyle='rgba(255,220,80,0.7)';ctx.beginPath();ctx.arc(carTX+5,lineY-10,3,0,Math.PI*2);ctx.fill();
+    }
+
+    // ── Miles label under car ──
+    ctx.fillStyle='#ffaa00';ctx.font='bold 8px monospace';ctx.textAlign='center';
+    ctx.shadowColor='#ff4400';ctx.shadowBlur=3;
+    ctx.fillText(curMiles.toLocaleString()+' mi',carTX,lineY+16);
+    ctx.shadowBlur=0;
+
+    // ── Endpoint labels ──
+    ctx.fillStyle='#444';ctx.font='7px monospace';
+    ctx.textAlign='left';ctx.fillText('LV 0',PAD,H-3);
+    ctx.textAlign='right';ctx.fillText('BOGOTÁ 5,000mi',W-2,H-3);
   },
+
   _drawCar(ctx,x,y,W,H){
     if(!isFinite(x)||!isFinite(y)||x===undefined||y===undefined)return;
     const s=2.5,f=MapAnim._frame;
-    // Exhaust puff
     if(f%6<3){ctx.fillStyle='rgba(80,60,40,0.4)';ctx.beginPath();ctx.arc(x-s*2,y-s*5,s*2,0,Math.PI*2);ctx.fill();}
-    // Car body
     ctx.fillStyle='#b83300';ctx.fillRect(x,y-s*8,s*22,s*7);
-    // Roof
     ctx.fillStyle='#8b2200';ctx.fillRect(x+s*3,y-s*14,s*12,s*7);
-    // Windshield
-    ctx.fillStyle='rgba(120,200,255,0.5)';ctx.fillRect(x+s*4,y-s*13,s*5,s*5);
-    ctx.fillRect(x+s*11,y-s*13,s*3,s*5);
-    // Wheels
+    ctx.fillStyle='rgba(120,200,255,0.5)';ctx.fillRect(x+s*4,y-s*13,s*5,s*5);ctx.fillRect(x+s*11,y-s*13,s*3,s*5);
     const rot=(f%12)/12*Math.PI*2;
     [x+s*4,x+s*17].forEach(wx=>{
       ctx.fillStyle='#111';ctx.beginPath();ctx.arc(wx,y,s*3.5,0,Math.PI*2);ctx.fill();
@@ -765,7 +873,8 @@ const Game={
     if(!S.game.diseases)S.game.diseases=[];
     MapAnim.start();UI.show('scr-map');
     const phase=S.game.phase;
-    if(phase==='travel')Game.renderTravel();
+    if(phase==='traveling'){S.game.phase='travel';Store.saveGame();Game.renderTravel();}
+    else if(phase==='travel')Game.renderTravel();
     else if(phase==='event')Game.renderTravel();
     else if(phase==='dead')UI.show('scr-dead');
     else if(phase==='win')UI.show('scr-win');
@@ -795,8 +904,25 @@ const Game={
   },
   renderTravel(){
     const area=$('action-area');if(!area)return;
+    const g=S.game;
+    // If mid-travel and an event card is already showing (paused), don't clobber it
+    if(g.phase==='traveling'&&MapAnim._travelPaused)return;
     clr(area);
-    const g=S.game,stop=TRAIL_STOPS[g.stopIdx];
+    // ── Traveling panel ──
+    if(g.phase==='traveling'){
+      const nextStop=TRAIL_STOPS[Math.min(g.stopIdx+1,TRAIL_STOPS.length-1)];
+      const box=el('div',{style:'background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px;'});
+      mount(box,
+        el('div',{style:'color:var(--orange);font-weight:bold;font-size:14px;margin-bottom:4px;',txt:'🚗 Driving to '+nextStop.name+'...'}),
+        el('div',{style:'color:var(--dim);font-size:11px;',txt:'Watch the route below — 3 events ahead before you arrive.'})
+      );
+      area.appendChild(box);
+      const logWrap=el('div',{style:'margin-top:6px;'});
+      for(const e of (g.log||[]).slice(-5).reverse())logWrap.appendChild(el('div',{class:'log-item '+(e.bad?'bad':e.good?'good':''),txt:e.txt}));
+      area.appendChild(logWrap);
+      return;
+    }
+    const stop=TRAIL_STOPS[g.stopIdx];
     const info=el('div',{class:'stop-info'});
     mount(info,el('div',{class:'stop-name',txt:stop.emoji+' '+stop.name}),el('div',{style:'color:var(--dim);font-size:11px;margin-top:4px;',txt:stop.desc}));
     area.appendChild(info);
@@ -874,25 +1000,27 @@ const Actions={
     const g=S.game;
     if(g.stopIdx>=TRAIL_STOPS.length-1)return;
     const nextIdx=g.stopIdx+1;
-    const evCount=3+Math.floor(Math.random()*2);
-    Actions._travelQueue=[...EVENTS].sort(()=>Math.random()-.5).slice(0,evCount);
+    // Pick exactly 3 micro-events for the 3 dots between this pair of stops
+    Actions._travelQueue=[...EVENTS].sort(()=>Math.random()-.5).slice(0,3);
     Actions._travelNextStopIdx=nextIdx;
-    Actions._travelQueueIdx=0;
-    UI.show('scr-travel');
-    const nextStop=TRAIL_STOPS[nextIdx];
-    const tit=$('travel-title');if(tit)tit.textContent='Driving to '+nextStop.name+'...';
-    TravelAnim.start(g.stopIdx,nextIdx);
-    const area=$('travel-event-area');if(area){clr(area);area.appendChild(el('div',{style:'color:var(--dim);font-size:12px;padding:8px;',txt:'The road stretches ahead...'}));}
-    setTimeout(()=>Actions._fireTravelEvent(),3000);
+    g.phase='traveling';
+    Store.saveGame();
+    Game.renderTravel();
+    Chat.sysMsg('🚗 Driving to '+TRAIL_STOPS[nextIdx].emoji+' '+TRAIL_STOPS[nextIdx].name+'...');
+    MapAnim.startTravel(g.stopIdx,nextIdx,
+      (i)=>Actions._fireMicroEvent(i),
+      ()=>Actions._travelArrive()
+    );
   },
-  _travelQueue:[],_travelNextStopIdx:0,_travelQueueIdx:0,
-  _fireTravelEvent(){
-    if(Actions._travelQueueIdx>=Actions._travelQueue.length){Actions._travelArrive();return;}
-    const ev=Actions._travelQueue[Actions._travelQueueIdx++];
-    const area=$('travel-event-area');if(!area)return;
+  _travelQueue:[],_travelNextStopIdx:0,
+  _fireMicroEvent(i){
+    const ev=Actions._travelQueue[i];
+    if(!ev){MapAnim.resumeTravel();return;}
+    Chiptune.start();
+    const area=$('action-area');if(!area){MapAnim.resumeTravel();return;}
     clr(area);
     const box=el('div',{class:'event-box'});
-    box.appendChild(el('div',{class:'event-title',txt:ev.title}));
+    box.appendChild(el('div',{class:'event-title',txt:'⚠ '+ev.title}));
     box.appendChild(el('div',{class:'event-text',txt:ev.text}));
     const choices=el('div',{class:'event-choices'});
     for(const ch of ev.choices){
@@ -903,17 +1031,16 @@ const Actions={
         Chiptune.stop();
         const result=ch.fn(S.game);
         Game.addLog(result,result.includes('-')&&!result.includes('won'),result.includes('+'));
-        Store.saveGame();
+        Store.saveGame();Game.renderStats();
         clr(area);area.appendChild(el('div',{style:'color:var(--green);font-size:13px;padding:8px;',txt:result}));
-        setTimeout(()=>Actions._fireTravelEvent(),2000);
+        setTimeout(()=>{Game.renderTravel();MapAnim.resumeTravel();},1500);
       });
       choices.appendChild(btn);
     }
     box.appendChild(choices);area.appendChild(box);
-    Chiptune.start();
   },
   _travelArrive(){
-    TravelAnim.stop();
+    TravelAnim.stop();MapAnim.stopTravel();
     const g=S.game,nextIdx=Actions._travelNextStopIdx;
     g.shankUsedThisStop=false;g.shankStunned=false;g.hustleUsed=false;g.buskUsed=false;
     g.fuel-=20+Math.floor(Math.random()*15);
@@ -1969,7 +2096,7 @@ const PeerNet={
       if(S.camOn&&S.myStream&&S.myStream.active){setTimeout(()=>{for(const pid of Object.keys(PeerNet.conns))CamMic.callPeer(pid);},500);}break;}}PeerNet._updateLobby();break;
       case'PLAYER_JOINED':if(data.pid&&data.player)S.players[data.pid]=data.player;PeerNet._updateLobby();toast((data.player?.name||'?')+' joined!','info','👤');Chat.sysMsg((data.player?.name||'Someone')+' joined the convoy!');break;
       case'MEET':if(data.pid&&data.pid!==S.playerId&&!PeerNet.conns[data.pid]){const c2=PeerNet.peer.connect(data.pid,{reliable:true,metadata:{pid:S.playerId,player:S.playerData}});c2.on('open',()=>{PeerNet._setupDataConn(c2);c2.send({type:'HELLO',pid:S.playerId,player:S.playerData});if(S.myStream)CamMic.callPeer(data.pid);});}break;
-      case'GAME_STATE':if(data.game){S.game=data.game;if(!S.game.diseases)S.game.diseases=[];Game.renderStats();if(S.game.phase==='travel')Game.renderTravel();else if(S.game.phase==='dead')UI.show('scr-dead');else if(S.game.phase==='win')UI.show('scr-win');}break;
+      case'GAME_STATE':if(data.game){S.game=data.game;if(!S.game.diseases)S.game.diseases=[];Game.renderStats();const ph=S.game.phase;if(ph==='travel'||ph==='traveling')Game.renderTravel();else if(ph==='dead')UI.show('scr-dead');else if(ph==='win')UI.show('scr-win');}break;
       case'START_GAME':if(!S.game)S.game=data.game;Game.resume(S.game);break;
       case'CHAT':Chat.addMsg(data.name,data.text,false,data.sys);break;
       case'SHANK_ALERT':if(data.targetPid===S.playerId){const ov=$('dodge-overlay');if(ov){ov.style.display='flex';let ct=2;const dc=$('dodge-countdown');if(dc)dc.textContent='2...';const iv=setInterval(()=>{ct--;if(dc)dc.textContent=ct+'...';if(ct<=0){clearInterval(iv);ov.style.display='none';}},1000);}}break;
@@ -2242,10 +2369,16 @@ async function init(){
     UI.refreshAvatarPreview();
   }
 
-  // Load saved game into state (lobby → game will use it)
+  // Load saved game — only restore multiplayer games (2+ players).
+  // Solo games are discarded on reload; wallet resets to default $350.
   if(savedGame&&savedGame.phase&&savedGame.phase!=='dead'&&savedGame.phase!=='win'){
-    S.game=savedGame;
-    if(!S.game.diseases)S.game.diseases=[];
+    const pCount=Object.keys(savedGame.players||{}).length;
+    if(pCount>=2){
+      S.game=savedGame;
+      if(!S.game.diseases)S.game.diseases=[];
+    }else{
+      Store.clearGame();
+    }
   }
 
   // Show geo permission screen first (then → scr-char)
