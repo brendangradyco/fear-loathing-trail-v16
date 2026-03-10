@@ -1,5 +1,5 @@
-// Fear & Loathing Trail v15 — Service Worker
-const CACHE = 'flt-v15-cache-v1';
+// Fear & Loathing Trail v16 — Service Worker
+const CACHE = 'flt-v16-cache-v1';
 const ASSETS = ['./index.html', './manifest.json'];
 
 async function generateIcon(size) {

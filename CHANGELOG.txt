@@ -1,65 +1,85 @@
-FEAR & LOATHING TRAIL — V15 CHANGELOG
+FEAR & LOATHING TRAIL — V16 CHANGELOG
 Generated: 2026-03-09
 ============================================================
 
 | #  | Category          | Change                                              | Status     |
 |----|-------------------|-----------------------------------------------------|------------|
-| 01 | Version           | Title/CFG/manifest/sw bumped to v15                 | DONE       |
-| 02 | Version           | PEER_PREFIX → flt15room, STORE_KEY → flt15_player   | DONE       |
-| 03 | CSS               | .bar: safe-area-inset-top padding for iPhone notch  | DONE       |
-| 04 | CSS               | #hunt-canvas: flex:1 (fills screen, no fixed height)| DONE       |
-| 05 | HTML              | scr-hunt: quit button moved to BOTTOM bar           | DONE       |
-| 06 | HTML              | scr-hunt: wave counter displayed in HUD             | DONE       |
-| 07 | HTML              | Hunt timer changed from 60s → 30s display           | DONE       |
-| 08 | MapAnim           | _drawCar: isFinite guard prevents NaN crash         | DONE       |
-| 09 | Hunt FPS          | Full DOOM-style FPS rewrite with player.angle       | DONE       |
-| 10 | Hunt FPS          | Building parallax driven by player.angle / 2PI * W  | DONE       |
-| 11 | Hunt FPS          | 3 enemy depth tiers (far/mid/near) via scaleMult    | DONE       |
-| 12 | Hunt FPS          | Crosshair fixed at H*0.54; enemies chest at H*0.54  | DONE       |
-| 13 | Hunt FPS          | WASD + arrow keys for desktop left/right rotation   | DONE       |
-| 14 | Hunt FPS          | Mouse drag delta-X to rotate view                   | DONE       |
-| 15 | Hunt FPS          | Mobile: left-half D-pad, right-half drag-to-look    | DONE       |
-| 16 | Hunt FPS          | Mobile: tap right half = shoot                      | DONE       |
-| 17 | Hunt Enemies      | 3 tiers: easy (40% 2-7lb), middle (37% 10-22lb),   | DONE       |
-|    |                   |          heavy (23% 20-43lb, 60% faster)            |            |
-| 18 | Hunt Enemies      | 8 variants: bat, lizard, freak, rh_norm, rh_fat,   | DONE       |
-|    |                   |             rh_flag, elite_a, elite_b               |            |
-| 19 | Hunt Enemies      | American flag shirt variant (rh_flag) with stripes | DONE       |
-| 20 | Hunt Enemies      | Heavy tier: narrow hitbox (±13% h), head/chest only | DONE       |
-| 21 | Hunt Enemies      | Middle tier: center-mass hitbox (±26% h)            | DONE       |
-| 22 | Hunt Enemies      | Easy tier: full-body hitbox (±44% h)                | DONE       |
-| 23 | Hunt Enemies      | Gold outline on heavy/elite enemies                 | DONE       |
-| 24 | Hunt Enemies      | Kill caps per enemy type prevent endless farming    | DONE       |
-| 25 | Hunt Waves        | 3 waves of 6/7/7 enemies = 20 total per hunt       | DONE       |
-| 26 | Hunt Waves        | Wave text flash + synthesized air-raid siren alert  | DONE       |
-| 27 | Hunt Carry        | Max carry weight: 150 lbs (hunt ends at max)        | DONE       |
-| 28 | Hunt Sound        | 5 cycling kill sounds (Web Audio synthesized):      | DONE       |
-|    |                   | moo, toasty, elvis, ranch-up, wilhelm               |            |
-| 29 | Hunt Sound        | Air-raid siren on wave spawn (synthesized sawtooth) | DONE       |
-| 30 | Hunt BgEvents     | Periodic background events every ~240 frames:       | DONE       |
-|    |                   | UFO (with beam), nuclear explosion, helicopter      |            |
-| 31 | Hunt Misc         | Quit button at bottom; hints in bottom bar          | DONE       |
-| 32 | Hunt Misc         | Supplies += floor(meat/10) on hunt end              | DONE       |
-| 33 | Multiplayer       | PeerNet BATCNT default room — CHUNK 2               | PENDING    |
-| 34 | Multiplayer       | Room browser for full rooms — CHUNK 2               | PENDING    |
-| 35 | Multiplayer       | In-game copy link button — CHUNK 2                  | PENDING    |
-| 36 | Multiplayer       | AFK 45s auto-advance — CHUNK 2                      | PENDING    |
-| 37 | Multiplayer       | ROOM_FULL message + fallback — CHUNK 2              | PENDING    |
-| 38 | Drug Mechanic     | Production → inventory → phone sell → cash — CHUNK 3| PENDING    |
-| 39 | Drug Mechanic     | Meth/PV mini-game skill checks — CHUNK 3            | PENDING    |
-| 40 | Drug Mechanic     | Cocaine/crack maze mini-game — CHUNK 3              | PENDING    |
-| 41 | Drug Mechanic     | Marijuana grow with time mechanic — CHUNK 3         | PENDING    |
-| 42 | Drug Mechanic     | Moonshine still campsite — CHUNK 3                  | PENDING    |
-| 43 | Drug Mechanic     | Burner phone + fiend selling mechanic — CHUNK 3     | PENDING    |
-| 44 | Drug Mechanic     | Robbery defense DOOM map — CHUNK 3                  | PENDING    |
+| 01 | Version           | Title/CFG/manifest/sw bumped to v16                 | DONE       |
+| 02 | Version           | PEER_PREFIX flt16room, STORE_KEY flt16_player       | DONE       |
+| 03 | Trail Stops       | Route redesigned: Las Vegas to Bogota, Colombia     | DONE       |
+|    |                   | (Phoenix / El Paso / Mexico City / Oaxaca /         |            |
+|    |                   |  Guatemala City / Managua / San Jose / Panama City  |            |
+|    |                   |  / Medellin / Bogota)                               |            |
+| 04 | Character Create  | Age buttons replaced with range slider 18-80        | DONE       |
+|    |                   | Live display of chosen age value                    |            |
+| 05 | Geo Location      | Non-blocking geo screen shown before char create    | DONE       |
+|    |                   | Allow/deny: allow pulls skills bonus from lat/lon   |            |
+| 06 | Hunt / DOOM       | Full Wolf3D raycaster replaces v15 parallax engine  | DONE       |
+|    |                   | DFS-generated 22x22 maze, DDA ray casting per column|            |
+|    |                   | Wall height = W*0.72/dist perspective projection    |            |
+|    |                   | Sprite z-buffer: enemies hidden behind walls        |            |
+|    |                   | 4-direction D-pad (forward/back/strafe L/R) mobile  |            |
+|    |                   | Torch sprites with flicker and glow halo            |            |
+|    |                   | Screen-space blood particles on kill (gore splat)   |            |
+|    |                   | Per-tile wall shading: 4 tile types, side darkening |            |
+|    |                   | Enemy sprites projected via camera-plane transform  |            |
+|    |                   | Pixel art per enemy type (bat, freak, flag shirt)   |            |
+|    |                   | Gold outline on heavy/elite tier enemies            |            |
+| 07 | Hunt Timer        | Hunt timer extended: 30s to 90s                     | DONE       |
+| 08 | Travel Screen     | Metal Slug X style cinematic travel screen          | DONE       |
+|    |                   | 5 parallax layers (sky/mountains/mid/fg/road)       |            |
+|    |                   | 5 biomes based on route segment (desert/jungle/     |            |
+|    |                   |   mountain/coast/city)                              |            |
+|    |                   | Road perspective trapezoid with sine-wave inclines  |            |
+|    |                   | Pixel-art car: bounce, lean, wheels, exhaust, glow  |            |
+|    |                   | Background entities every 55 frames: cars, trucks,  |            |
+|    |                   |   pedestrians, UFO tractor beam, bigfoot, Godzilla  |            |
+|    |                   | Mini world map overlay with animated route dot      |            |
+| 09 | Travel Events     | Minimum 3 events per travel leg (up to 4)           | DONE       |
+| 10 | Ration System     | 4 ration tiers selectable from travel screen:       | DONE       |
+|    |                   | tiny_tim (0 supply cost, sanity -5)                 |            |
+|    |                   | normal (1 supply, no modifier)                      |            |
+|    |                   | fat (2 supply, sanity +5)                           |            |
+|    |                   | cholesterol_daddy (3 supply, sanity +10)            |            |
+| 11 | Hustle Mini-game  | Canvas slider timing game; green zone scales with   | DONE       |
+|    |                   | skills.smooth; one use per stop (hustleUsed flag)   |            |
+| 12 | Busk Mini-game    | Simon-says 4-color pad, up to 4 rounds              | DONE       |
+|    |                   | Partial credit on fail; one use per stop (buskUsed) |            |
+| 13 | Shank Mechanic    | 2s dodge window via SHANK_ALERT WebRTC broadcast    | DONE       |
+|    |                   | SHANK_DODGE message sets _shankDodged on attacker   |            |
+| 14 | Per-stop Flags    | hustleUsed/buskUsed/shankUsedThisStop reset on      | DONE       |
+|    |                   | _travelArrive() -- prevents per-stop farming        |            |
+| 15 | UI                | Hustle/Busk show greyed "done" state when used      | DONE       |
+|    |                   | (.btn-used CSS: opacity 45%, pointer-events none)   |            |
+| 16 | Multiplayer       | PeerNet BATCNT default room -- CHUNK 2              | PENDING    |
+| 17 | Multiplayer       | Room browser for full rooms -- CHUNK 2              | PENDING    |
+| 18 | Multiplayer       | In-game copy link button -- CHUNK 2                 | PENDING    |
+| 19 | Multiplayer       | AFK 45s auto-advance -- CHUNK 2                     | PENDING    |
+| 20 | Multiplayer       | ROOM_FULL message + fallback -- CHUNK 2             | PENDING    |
+| 21 | Drug Mechanic     | Production/inventory/phone sell/cash -- CHUNK 3     | PENDING    |
+| 22 | Drug Mechanic     | Meth/PV mini-game skill checks -- CHUNK 3           | PENDING    |
+| 23 | Drug Mechanic     | Cocaine/crack maze mini-game -- CHUNK 3             | PENDING    |
+| 24 | Drug Mechanic     | Marijuana grow with time mechanic -- CHUNK 3        | PENDING    |
+| 25 | Drug Mechanic     | Moonshine still campsite -- CHUNK 3                 | PENDING    |
+| 26 | Drug Mechanic     | Burner phone + fiend selling mechanic -- CHUNK 3    | PENDING    |
+| 27 | Drug Mechanic     | Robbery defense DOOM map -- CHUNK 3                 | PENDING    |
 
-NOTE ON SOUND BYTES:
-The requested sound clips (Wilson scream, Elvis vocal, "Toasty" MK, "Ranch it up",
-Mr. Garrison) are copyrighted audio. This version uses Web Audio API synthesis
-to approximate their feel. To add real samples: host the .mp3/.ogg files in the
-repo and replace the synthesis blocks in _playKillSound() with Audio() playback.
+NOTE ON HUNT ENGINE:
+V16 replaces the v15 angle-based parallax hunt with a true Wolf3D raycaster.
+The DDA (Digital Differential Analyzer) algorithm casts one ray per screen column,
+computing wall hit distance for accurate perspective projection. Enemy sprites use
+camera-plane inverse-transform for correct screen positioning and are z-buffered
+so they cannot clip through walls. Forward/back movement with collision detection.
+
+NOTE ON TRAVEL ANIMATION:
+Biomes are determined by stop index:
+  stops 0-2: desert (Las Vegas / Phoenix / El Paso)
+  stops 3-5: jungle (Mexico City / Oaxaca / Guatemala City)
+  stops 6-7: coast (Managua / San Jose / Panama City)
+  stops 8-9: mountain (Medellin approach, Colombia highlands)
+  stop 10:   city (Bogota)
 
 NOTE ON GITHUB REPOS:
+- v16 main: https://github.com/brendangradyco/fear-loathing-trail-v16
 - v15 main: https://github.com/brendangradyco/fear-loathing-trail-v15
-- v15 pyserf copy: to be created after all chunks complete
 ============================================================
